@@ -44,7 +44,7 @@ A system that uses Large Language Models (LLM) to process and analyze employee a
    uvicorn app.main:app --reload
    ```
 
-## Project Structure
+## Project Structure (will be updated)
 
 ```
 employee-activity-tracker/
