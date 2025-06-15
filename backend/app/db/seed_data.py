@@ -28,29 +28,51 @@ def generate_employee_data():
 def generate_activity_data(employee_id: int, week_number: int):
     """Generate synthetic activity data for an employee"""
     activities = [
-        "Prepared sales presentation for client meeting",
-        "Attended team training session",
-        "Worked on quarterly report",
-        "Conducted market research",
-        "Implemented new feature",
-        "Fixed critical bug in production",
-        "Met with potential clients",
-        "Updated documentation",
-        "Participated in code review",
-        "Analyzed customer feedback"
+        "Prepared sales presentation for client meeting and implemented new sales strategy",
+        "Attended team training session and documented key learnings",
+        "Worked on quarterly report and identified areas for improvement",
+        "Conducted market research and analyzed competitor strategies",
+        "Implemented new feature and resolved technical challenges",
+        "Fixed critical bug in production and documented solution",
+        "Met with potential clients and addressed their concerns",
+        "Updated documentation and improved code quality",
+        "Participated in code review and suggested optimizations",
+        "Analyzed customer feedback and proposed solutions",
+        "Faced challenges with customer retention and implemented new engagement strategy",
+        "Prepared data analysis report for management review",
+        "Led team meeting to discuss project progress and challenges",
+        "Developed new marketing campaign and tracked its performance",
+        "Conducted performance review and provided feedback"
     ]
+    
+    # Generate realistic sales data in RMB
+    base_sales = random.uniform(10000, 50000)
+    # Add some variation based on week number
+    sales_variation = random.uniform(0.8, 1.2)
+    total_sales = round(base_sales * sales_variation, 2)
+    
+    # Generate realistic hours (35-50 hours per week)
+    hours_worked = round(random.uniform(35, 50), 1)
+    
+    # Generate realistic meetings (2-10 per week)
+    meetings_attended = random.randint(2, 10)
     
     return {
         "employee_id": employee_id,
         "week_number": week_number,
-        "meetings_attended": random.randint(2, 10),
-        "total_sales": round(random.uniform(1000, 50000), 2),
-        "hours_worked": round(random.uniform(35, 50), 1),
+        "meetings_attended": meetings_attended,
+        "total_sales": total_sales,
+        "hours_worked": hours_worked,
         "activities": random.choice(activities)
     }
 
 def seed_database(db: Session, num_employees: int = 10, weeks: int = 10):
     """Seed the database with synthetic data"""
+    # Clear existing data
+    db.query(models.EmployeeActivity).delete()
+    db.query(models.Employee).delete()
+    db.commit()
+    
     # Generate employees
     employees = []
     for _ in range(num_employees):

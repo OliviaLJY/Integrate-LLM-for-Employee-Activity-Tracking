@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr
-from datetime import date
 from typing import Optional, List
+from datetime import date
 
 class EmployeeBase(BaseModel):
     email: EmailStr
@@ -18,18 +18,18 @@ class Employee(EmployeeBase):
         from_attributes = True
 
 class EmployeeActivityBase(BaseModel):
-    week_number: int
+    employee_id: int
+    week_number: int  # 1-10
     meetings_attended: int
-    total_sales: float
+    total_sales: float  # In RMB
     hours_worked: float
-    activities: str
+    activities: str  # Detailed activity description
 
 class EmployeeActivityCreate(EmployeeActivityBase):
-    employee_id: int
+    pass
 
 class EmployeeActivity(EmployeeActivityBase):
     id: int
-    employee_id: int
     
     class Config:
         from_attributes = True
@@ -41,6 +41,21 @@ class QueryRequest(BaseModel):
     query: str
 
 class QueryResponse(BaseModel):
-    answer: str
+    response: str
     confidence: float
-    supporting_data: Optional[dict] = None 
+    error: Optional[str] = None
+    sql_query: Optional[str] = None
+
+class BenchmarkResult(BaseModel):
+    query: str
+    response: str
+    execution_time: float
+    success: bool
+    error: Optional[str] = None
+
+class BenchmarkResponse(BaseModel):
+    results: List[BenchmarkResult]
+    total_queries: int
+    successful_queries: int
+    average_execution_time: float
+    query_type_distribution: dict 

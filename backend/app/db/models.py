@@ -1,9 +1,6 @@
 from sqlalchemy import Column, Integer, String, Float, Date, ForeignKey, Text
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-from datetime import date
-
-Base = declarative_base()
+from .database import Base
 
 class Employee(Base):
     __tablename__ = "employees"
@@ -14,7 +11,7 @@ class Employee(Base):
     department = Column(String)
     hire_date = Column(Date)
     
-    # Relationships
+    # Relationship with activities
     activities = relationship("EmployeeActivity", back_populates="employee")
 
 class EmployeeActivity(Base):
@@ -22,11 +19,12 @@ class EmployeeActivity(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     employee_id = Column(Integer, ForeignKey("employees.id"))
-    week_number = Column(Integer)
+    week_number = Column(Integer)  # 1-10 as per requirements
     meetings_attended = Column(Integer)
-    total_sales = Column(Float)  # in RMB
+    total_sales = Column(Float)  # In RMB as per requirements
     hours_worked = Column(Float)
-    activities = Column(Text)  # Description of activities
+    activities = Column(Text)  # Detailed activity description
     
-    # Relationships
+    # Relationship with employee
     employee = relationship("Employee", back_populates="activities") 
+
