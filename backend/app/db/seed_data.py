@@ -1,6 +1,6 @@
 from faker import Faker
 from sqlalchemy.orm import Session
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 import random
 from . import models
 
@@ -66,31 +66,132 @@ def generate_activity_data(employee_id: int, week_number: int):
         "activities": random.choice(activities)
     }
 
-def seed_database(db: Session, num_employees: int = 10, weeks: int = 10):
-    """Seed the database with synthetic data"""
-    # Clear existing data
-    db.query(models.EmployeeActivity).delete()
-    db.query(models.Employee).delete()
+def seed_calendar_weeks(db: Session):
+    """Seed calendar weeks for 2024"""
+    start_date = datetime(2024, 1, 1)
+    for week in range(1, 11):
+        week_start = start_date + timedelta(days=(week-1)*7)
+        week_end = week_start + timedelta(days=6)
+        calendar_week = models.CalendarWeek(
+            week_number=week,
+            start_date=week_start.date(),
+            end_date=week_end.date()
+        )
+        db.add(calendar_week)
     db.commit()
-    
-    # Generate employees
-    employees = []
-    for _ in range(num_employees):
-        employee_data = generate_employee_data()
-        db_employee = models.Employee(**employee_data)
-        db.add(db_employee)
-        employees.append(db_employee)
-    
+
+def seed_employees(db: Session):
+    """Seed employee data with all departments, job titles, and names referenced in queries"""
+    employees = [
+        # Sales
+        {"email": "leroyrussell@example.org", "full_name": "Leroy Russell", "job_title": "Sales Manager", "department": "Sales", "hire_date": datetime(2023, 1, 15).date()},
+        {"email": "weizhang@example.com", "full_name": "Wei Zhang", "job_title": "Sales Representative", "department": "Sales", "hire_date": datetime(2023, 3, 10).date()},
+        {"email": "samanthataylor@example.net", "full_name": "Samantha Taylor", "job_title": "Account Executive", "department": "Sales", "hire_date": datetime(2024, 6, 1).date()},
+        # IT
+        {"email": "nataliechen@example.net", "full_name": "Natalie Chen", "job_title": "Network Engineer", "department": "IT", "hire_date": datetime(2024, 2, 1).date()},
+        {"email": "ssullivan@example.net", "full_name": "Sarah Sullivan", "job_title": "System Administrator", "department": "IT", "hire_date": datetime(2024, 3, 15).date()},
+        {"email": "foneill@example.org", "full_name": "Frank O'Neill", "job_title": "IT Manager", "department": "IT", "hire_date": datetime(2024, 4, 1).date()},
+        {"email": "ocooper@example.com", "full_name": "Oliver Cooper", "job_title": "Network Engineer", "department": "IT", "hire_date": datetime(2024, 8, 1).date()},
+        # Product Development
+        {"email": "aprilmartinez@example.net", "full_name": "April Martinez", "job_title": "UX Designer", "department": "Product Development", "hire_date": datetime(2023, 9, 21).date()},
+        {"email": "kimlee@example.com", "full_name": "Kim Lee", "job_title": "Software Engineer", "department": "Product Development", "hire_date": datetime(2024, 9, 29).date()},
+        {"email": "taohuang@example.com", "full_name": "Tao Huang", "job_title": "Product Manager", "department": "Product Development", "hire_date": datetime(2024, 5, 10).date()},
+        # Marketing
+        {"email": "michellewang@example.net", "full_name": "Michelle Wang", "job_title": "Marketing Specialist", "department": "Marketing", "hire_date": datetime(2024, 7, 1).date()},
+        {"email": "patriciaglover@example.com", "full_name": "Patricia Glover", "job_title": "Marketing Manager", "department": "Marketing", "hire_date": datetime(2024, 5, 1).date()},
+        # Finance
+        {"email": "nalifinance@example.com", "full_name": "Na Li", "job_title": "Finance Manager", "department": "Finance", "hire_date": datetime(2023, 12, 1).date()},
+        {"email": "frankwong@example.com", "full_name": "Frank Wong", "job_title": "Accountant", "department": "Finance", "hire_date": datetime(2024, 1, 20).date()},
+        # Business Development
+        {"email": "danielzhang@example.com", "full_name": "Daniel Zhang", "job_title": "Business Analyst", "department": "Business Development", "hire_date": datetime(2024, 2, 15).date()},
+        {"email": "lucyliu@example.com", "full_name": "Lucy Liu", "job_title": "Data Analyst", "department": "Business Development", "hire_date": datetime(2024, 3, 5).date()},
+    ]
+    for employee_data in employees:
+        employee = models.Employee(**employee_data)
+        db.add(employee)
     db.commit()
+
+def seed_activities(db: Session):
+    """Seed employee activity data with realistic metrics and varied activities"""
+    activities = [
+        "Prepared and presented quarterly sales report",
+        "Led team meeting to discuss project progress and challenges",
+        "Implemented new feature and resolved technical challenges",
+        "Conducted customer training session",
+        "Faced challenges with customer retention and implemented new engagement strategy",
+        "Created and delivered product demonstration",
+        "Resolved critical system outage",
+        "Developed new marketing campaign",
+        "Optimized database performance",
+        "Conducted code review and provided feedback",
+        "Prepared data analysis report for management review",
+        "Worked on data analysis and reporting tasks",
+        "Analyzed customer feedback and proposed solutions",
+        "Faced challenges with data quality and implemented solutions",
+        "Worked on business development strategy and client acquisition"
+    ]
     
-    # Generate activities for each employee
+    # Base metrics by department
+    department_metrics = {
+        "Sales": {
+            "hours_range": (40, 50),
+            "sales_range": (30000, 100000),
+            "meetings_range": (5, 12)
+        },
+        "IT": {
+            "hours_range": (35, 45),
+            "sales_range": (0, 0),
+            "meetings_range": (3, 8)
+        },
+        "Finance": {
+            "hours_range": (38, 45),
+            "sales_range": (0, 0),
+            "meetings_range": (4, 10)
+        },
+        "Marketing": {
+            "hours_range": (35, 45),
+            "sales_range": (0, 0),
+            "meetings_range": (4, 10)
+        },
+        "Product Development": {
+            "hours_range": (40, 48),
+            "sales_range": (0, 0),
+            "meetings_range": (3, 8)
+        },
+        "Business Development": {
+            "hours_range": (38, 45),
+            "sales_range": (20000, 80000),
+            "meetings_range": (5, 12)
+        }
+    }
+    
+    employees = db.query(models.Employee).all()
     for employee in employees:
-        for week in range(1, weeks + 1):
-            activity_data = generate_activity_data(employee.id, week)
-            db_activity = models.EmployeeActivity(**activity_data)
-            db.add(db_activity)
-    
+        metrics = department_metrics[employee.department]
+        for week in range(1, 11):
+            # Add some weekly variation
+            week_factor = 0.9 + (week % 3) * 0.1  # 0.9 to 1.1
+            
+            hours = round(random.uniform(*metrics["hours_range"]) * week_factor, 1)
+            sales = round(random.uniform(*metrics["sales_range"]) * week_factor, 2) if metrics["sales_range"][1] > 0 else None
+            meetings = random.randint(*metrics["meetings_range"])
+            
+            activity = models.EmployeeActivity(
+                employee_id=employee.id,
+                week_number=week,
+                meetings_attended=meetings,
+                total_sales=sales,
+                hours_worked=hours,
+                activities=random.choice(activities)
+            )
+            db.add(activity)
     db.commit()
+
+def seed_database(db: Session):
+    """Seed all database tables"""
+    seed_calendar_weeks(db)
+    seed_employees(db)
+    seed_activities(db)
 
 if __name__ == "__main__":
     from .database import SessionLocal

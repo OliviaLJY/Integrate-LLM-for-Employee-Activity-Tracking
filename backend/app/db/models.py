@@ -7,6 +7,7 @@ class Employee(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True)
+    full_name = Column(String, nullable=False)
     job_title = Column(String)
     department = Column(String)
     hire_date = Column(Date)
@@ -23,8 +24,16 @@ class EmployeeActivity(Base):
     meetings_attended = Column(Integer)
     total_sales = Column(Float)  # In RMB as per requirements
     hours_worked = Column(Float)
-    activities = Column(Text)  # Detailed activity description
+    activities = Column(String)  # Detailed activity description
     
     # Relationship with employee
-    employee = relationship("Employee", back_populates="activities") 
+    employee = relationship("Employee", back_populates="activities")
+    # NOTE: Enforce 'Sales' department total_sales logic in application code, not as a DB constraint.
+
+class CalendarWeek(Base):
+    __tablename__ = "calendar_weeks"
+
+    week_number = Column(Integer, primary_key=True)
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=False)
 
