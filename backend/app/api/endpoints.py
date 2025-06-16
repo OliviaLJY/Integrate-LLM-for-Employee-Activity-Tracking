@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from typing import List
 from ..db.database import get_db
 from ..db import models
@@ -7,17 +8,69 @@ from ..schemas import (
     Employee, EmployeeCreate, EmployeeActivity, EmployeeActivityCreate,
     QueryRequest, QueryResponse, EmployeeWithActivities, BenchmarkResponse, BenchmarkResult
 )
-from ..llm.query_processor import QueryProcessor
+from ..llm.query_processor import process_query
 import time
+import re
 
 router = APIRouter()
-query_processor = QueryProcessor()
 
 @router.post("/query", response_model=QueryResponse)
-def process_query(query_request: QueryRequest, db: Session = Depends(get_db)):
+def process_query_endpoint(query_request: QueryRequest, db: Session = Depends(get_db)):
     """Process a natural language query about employee activities"""
     try:
-        return query_processor.process_query(db, query_request)
+        # Get SQL from LLM
+        sql_query = process_query(query_request.query)
+        
+        # Extract SQL from response (assuming it's between <sql> and </sql> tags)
+        sql_match = re.search(r'<sql>(.*?)</sql>', sql_query, re.DOTALL)
+        if sql_match:
+            sql = sql_match.group(1).strip()
+            
+            # Execute the SQL query
+            try:
+                result = db.execute(text(sql))
+                rows = result.fetchall()
+                
+                # Format the results as a readable response
+                if rows:
+                    # Get column names
+                    columns = list(result.keys())
+                    
+                    # Format results as a readable string
+                    response_text = f"Found {len(rows)} result(s):\n\n"
+                    
+                    for i, row in enumerate(rows, 1):
+                        response_text += f"Result {i}:\n"
+                        for col, value in zip(columns, row):
+                            response_text += f"  {col}: {value}\n"
+                        response_text += "\n"
+                else:
+                    response_text = "No results found for this query."
+                
+                return QueryResponse(
+                    query=query_request.query,
+                    sql_query=sql,
+                    response=response_text.strip(),
+                    confidence=0.9,
+                    error=None
+                )
+            except Exception as sql_error:
+                db.rollback()
+                return QueryResponse(
+                    query=query_request.query,
+                    sql_query=sql,
+                    response="SQL execution failed",
+                    confidence=0.0,
+                    error=str(sql_error)
+                )
+        else:
+            return QueryResponse(
+                query=query_request.query,
+                sql_query=sql_query,
+                response="Could not extract SQL from LLM response",
+                confidence=0.0,
+                error="SQL extraction failed"
+            )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -137,23 +190,82 @@ def run_benchmark(db: Session = Depends(get_db)):
     for query in test_queries:
         start_time = time.time()
         try:
-            response = query_processor.process_query(db, QueryRequest(query=query))
-            execution_time = time.time() - start_time
-            total_time += execution_time
+            # Get SQL from LLM
+            sql_query = process_query(query)
             
-            if response.confidence > 0:
-                successful_queries += 1
-                query_type = query_processor._determine_query_type(query)
-                query_type_distribution[query_type] = query_type_distribution.get(query_type, 0) + 1
-            
-            results.append(BenchmarkResult(
-                query=query,
-                response=response.response,
-                execution_time=execution_time,
-                success=response.confidence > 0,
-                error=response.error,
-                sql_query=response.sql_query
-            ))
+            # Extract SQL from response
+            sql_match = re.search(r'<sql>(.*?)</sql>', sql_query, re.DOTALL)
+            if sql_match:
+                sql = sql_match.group(1).strip()
+                
+                # Execute the SQL query
+                try:
+                    result = db.execute(text(sql))
+                    rows = result.fetchall()
+                    
+                    execution_time = time.time() - start_time
+                    total_time += execution_time
+                    successful_queries += 1
+                    
+                    # Format the results as a readable response
+                    if rows:
+                        # Get column names
+                        columns = list(result.keys())
+                        
+                        # Format results as a readable string (limit to first 3 results for benchmark)
+                        response_text = f"Found {len(rows)} result(s):\n\n"
+                        
+                        for i, row in enumerate(rows[:3], 1):  # Limit to first 3 for readability
+                            response_text += f"Result {i}:\n"
+                            for col, value in zip(columns, row):
+                                response_text += f"  {col}: {value}\n"
+                            response_text += "\n"
+                        
+                        if len(rows) > 3:
+                            response_text += f"... and {len(rows) - 3} more results"
+                    else:
+                        response_text = "No results found for this query."
+                    
+                    # Simple query type determination based on keywords
+                    query_type = "basic"
+                    if any(word in query.lower() for word in ["total", "sum", "average", "count"]):
+                        query_type = "aggregation"
+                    elif any(word in query.lower() for word in ["most", "highest", "top", "best"]):
+                        query_type = "ranking"
+                    elif any(word in query.lower() for word in ["compare", "vs", "versus"]):
+                        query_type = "comparison"
+                    
+                    query_type_distribution[query_type] = query_type_distribution.get(query_type, 0) + 1
+                    
+                    results.append(BenchmarkResult(
+                        query=query,
+                        response=response_text.strip(),
+                        execution_time=execution_time,
+                        success=True,
+                        error=None,
+                        sql_query=sql
+                    ))
+                except Exception as sql_error:
+                    db.rollback()
+                    execution_time = time.time() - start_time
+                    results.append(BenchmarkResult(
+                        query=query,
+                        response="SQL execution failed",
+                        execution_time=execution_time,
+                        success=False,
+                        error=str(sql_error),
+                        sql_query=sql
+                    ))
+            else:
+                execution_time = time.time() - start_time
+                results.append(BenchmarkResult(
+                    query=query,
+                    response="Could not extract SQL from LLM response",
+                    execution_time=execution_time,
+                    success=False,
+                    error="SQL extraction failed",
+                    sql_query=sql_query
+                ))
             
         except Exception as e:
             execution_time = time.time() - start_time

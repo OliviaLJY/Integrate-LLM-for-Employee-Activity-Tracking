@@ -37,3 +37,4 @@ class CalendarWeek(Base):
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=False)
 
+ 
