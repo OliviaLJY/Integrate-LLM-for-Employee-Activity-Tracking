@@ -2,7 +2,10 @@
 
 A comprehensive system that uses Large Language Models (LLM) to process and analyze employee activity data, providing natural language insights and summaries through a modern web interface.
 
-## Product Demo Video: https://drive.google.com/file/d/1sZFon6VOHJJeGvMGJYlhrCf2zHkdWukE/view?usp=drive_link![image](https://github.com/user-attachments/assets/f3e9ccb4-52ed-4ef3-bac4-9258b8ad443f)
+## Product Demo Video**  
+[Click to Watch](https://drive.google.com/file/d/1sZFon6VOHJJeGvMGJYlhrCf2zHkdWukE/view?usp=drive_link)
+
+<img width="912" alt="image" src="https://github.com/user-attachments/assets/ab27be20-a2f5-4cb0-a725-7f906dfe5e05" />
 
 ## Features
 
