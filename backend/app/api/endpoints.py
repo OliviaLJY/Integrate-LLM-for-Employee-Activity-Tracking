@@ -14,6 +14,28 @@ import re
 
 router = APIRouter()
 
+def format_sql_query(sql: str) -> str:
+    """Format SQL query to be more readable by removing excessive newlines and normalizing spacing"""
+    if not sql:
+        return sql
+    
+    # Remove excessive whitespace and normalize
+    lines = [line.strip() for line in sql.split('\n') if line.strip()]
+    
+    # Join with single spaces, but preserve logical breaks
+    formatted_sql = ' '.join(lines)
+    
+    # Add strategic line breaks for better readability
+    keywords = ['SELECT', 'FROM', 'WHERE', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 
+                'GROUP BY', 'ORDER BY', 'HAVING', 'UNION', 'AND', 'OR']
+    
+    for keyword in keywords:
+        # Add line break before major keywords (except AND/OR which are inline)
+        if keyword not in ['AND', 'OR']:
+            formatted_sql = formatted_sql.replace(f' {keyword} ', f' {keyword} ')
+    
+    return formatted_sql
+
 @router.post("/query", response_model=QueryResponse)
 def process_query_endpoint(query_request: QueryRequest, db: Session = Depends(get_db)):
     """Process a natural language query about employee activities"""
@@ -36,20 +58,29 @@ def process_query_endpoint(query_request: QueryRequest, db: Session = Depends(ge
                     # Get column names
                     columns = list(result.keys())
                     
-                    # Format results as a readable string
-                    response_text = f"Found {len(rows)} result(s):\n\n"
-                    
-                    for i, row in enumerate(rows, 1):
-                        response_text += f"Result {i}:\n"
-                        for col, value in zip(columns, row):
-                            response_text += f"  {col}: {value}\n"
-                        response_text += "\n"
+                    if len(rows) == 1:
+                        # Single result - compact format
+                        row = rows[0]
+                        result_parts = [f"{col}: {value}" for col, value in zip(columns, row)]
+                        response_text = " | ".join(result_parts)
+                    else:
+                        # Multiple results - structured format
+                        response_text = f"Found {len(rows)} results: "
+                        result_summaries = []
+                        for i, row in enumerate(rows, 1):
+                            # Create a compact summary for each result
+                            key_info = []
+                            for col, value in zip(columns, row):
+                                if col in ['full_name', 'email', 'department', 'total_sales', 'hours_worked', 'meetings_attended']:
+                                    key_info.append(f"{col}: {value}")
+                            result_summaries.append(f"({i}) {' | '.join(key_info)}")
+                        response_text += "; ".join(result_summaries)
                 else:
                     response_text = "No results found for this query."
                 
                 return QueryResponse(
                     query=query_request.query,
-                    sql_query=sql,
+                    sql_query=format_sql_query(sql),
                     response=response_text.strip(),
                     confidence=0.9,
                     error=None
@@ -58,7 +89,7 @@ def process_query_endpoint(query_request: QueryRequest, db: Session = Depends(ge
                 db.rollback()
                 return QueryResponse(
                     query=query_request.query,
-                    sql_query=sql,
+                    sql_query=format_sql_query(sql),
                     response="SQL execution failed",
                     confidence=0.0,
                     error=str(sql_error)
@@ -212,17 +243,34 @@ def run_benchmark(db: Session = Depends(get_db)):
                         # Get column names
                         columns = list(result.keys())
                         
-                        # Format results as a readable string (limit to first 3 results for benchmark)
-                        response_text = f"Found {len(rows)} result(s):\n\n"
-                        
-                        for i, row in enumerate(rows[:3], 1):  # Limit to first 3 for readability
-                            response_text += f"Result {i}:\n"
-                            for col, value in zip(columns, row):
-                                response_text += f"  {col}: {value}\n"
-                            response_text += "\n"
-                        
-                        if len(rows) > 3:
-                            response_text += f"... and {len(rows) - 3} more results"
+                        if len(rows) == 1:
+                            # Single result - compact format
+                            row = rows[0]
+                            result_parts = [f"{col}: {value}" for col, value in zip(columns, row)]
+                            response_text = " | ".join(result_parts)
+                        elif len(rows) <= 3:
+                            # Few results - structured format
+                            response_text = f"Found {len(rows)} results: "
+                            result_summaries = []
+                            for i, row in enumerate(rows, 1):
+                                # Create a compact summary for each result
+                                key_info = []
+                                for col, value in zip(columns, row):
+                                    if col in ['full_name', 'email', 'department', 'total_sales', 'hours_worked', 'meetings_attended']:
+                                        key_info.append(f"{col}: {value}")
+                                result_summaries.append(f"({i}) {' | '.join(key_info)}")
+                            response_text += "; ".join(result_summaries)
+                        else:
+                            # Many results - show first 3 with summary
+                            response_text = f"Found {len(rows)} results (showing first 3): "
+                            result_summaries = []
+                            for i, row in enumerate(rows[:3], 1):
+                                key_info = []
+                                for col, value in zip(columns, row):
+                                    if col in ['full_name', 'email', 'department', 'total_sales', 'hours_worked', 'meetings_attended']:
+                                        key_info.append(f"{col}: {value}")
+                                result_summaries.append(f"({i}) {' | '.join(key_info)}")
+                            response_text += "; ".join(result_summaries) + f" ... and {len(rows) - 3} more"
                     else:
                         response_text = "No results found for this query."
                     
@@ -243,7 +291,7 @@ def run_benchmark(db: Session = Depends(get_db)):
                         execution_time=execution_time,
                         success=True,
                         error=None,
-                        sql_query=sql
+                        sql_query=format_sql_query(sql)
                     ))
                 except Exception as sql_error:
                     db.rollback()
@@ -254,7 +302,7 @@ def run_benchmark(db: Session = Depends(get_db)):
                         execution_time=execution_time,
                         success=False,
                         error=str(sql_error),
-                        sql_query=sql
+                        sql_query=format_sql_query(sql)
                     ))
             else:
                 execution_time = time.time() - start_time
