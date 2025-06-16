@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Activity Tracking System</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-chart-line"></i>
+                    <h1>Employee Activity Tracker</h1>
+                </div>
+                <div class="header-stats">
+                    <div class="stat-card">
+                        <span class="stat-number" id="totalEmployees">10</span>
+                        <span class="stat-label">Employees</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-number" id="totalQueries">0</span>
+                        <span class="stat-label">Queries</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Query Section -->
+            <section class="query-section">
+                <div class="query-container">
+                    <h2>Ask a Question</h2>
+                    <p class="query-description">Ask natural language questions about employee activities, sales, hours worked, and more.</p>
+                    
+                    <div class="query-input-container">
+                        <div class="input-wrapper">
+                            <i class="fas fa-search"></i>
+                            <input 
+                                type="text" 
+                                id="queryInput" 
+                                placeholder="e.g., Who worked the most hours last week?"
+                                autocomplete="off"
+                            >
+                            <button id="queryBtn" class="query-btn">
+                                <span class="btn-text">Ask</span>
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Example Queries -->
+                    <div class="example-queries">
+                        <h3>Example Questions:</h3>
+                        <div class="example-grid">
+                            <button class="example-btn" data-query="What is the email address of the employee who is the Sales Manager?">
+                                <i class="fas fa-user-tie"></i>
+                                Sales Manager Contact
+                            </button>
+                            <button class="example-btn" data-query="Who achieved the highest sales revenue in a single week?">
+                                <i class="fas fa-trophy"></i>
+                                Top Sales Performance
+                            </button>
+                            <button class="example-btn" data-query="Which employees worked more than 40 hours during week 1?">
+                                <i class="fas fa-clock"></i>
+                                Overtime Workers
+                            </button>
+                            <button class="example-btn" data-query="How much total sales revenue has the Sales department generated?">
+                                <i class="fas fa-dollar-sign"></i>
+                                Department Revenue
+                            </button>
+                            <button class="example-btn" data-query="Who are the employees that faced challenges with customer retention?">
+                                <i class="fas fa-users"></i>
+                                Customer Retention
+                            </button>
+                            <button class="example-btn" data-query="Compare the hours worked by 'Wei Zhang' and 'Tao Huang' during week 1">
+                                <i class="fas fa-balance-scale"></i>
+                                Employee Comparison
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Results Section -->
+            <section class="results-section" id="resultsSection" style="display: none;">
+                <div class="results-container">
+                    <div class="results-header">
+                        <h3>Query Results</h3>
+                        <button id="clearResults" class="clear-btn">
+                            <i class="fas fa-times"></i>
+                            Clear
+                        </button>
+                    </div>
+                    <div id="resultsContent" class="results-content">
+                        <!-- Results will be populated here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Quick Actions -->
+            <section class="quick-actions">
+                <h3>Quick Actions</h3>
+                <div class="action-grid">
+                    <button class="action-card" id="viewEmployees">
+                        <i class="fas fa-users"></i>
+                        <span>View All Employees</span>
+                    </button>
+                    <button class="action-card" id="runBenchmark">
+                        <i class="fas fa-chart-bar"></i>
+                        <span>Run Benchmark</span>
+                    </button>
+                    <button class="action-card" id="viewActivities">
+                        <i class="fas fa-tasks"></i>
+                        <span>Recent Activities</span>
+                    </button>
+                    <button class="action-card" id="exportData">
+                        <i class="fas fa-download"></i>
+                        <span>Export Data</span>
+                    </button>
+                </div>
+            </section>
+        </main>
+
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+            <div class="loading-spinner">
+                <div class="spinner"></div>
+                <p>Processing your query...</p>
+            </div>
+        </div>
+
+        <!-- Toast Notifications -->
+        <div id="toastContainer" class="toast-container"></div>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html> 

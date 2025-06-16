@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import List
@@ -11,6 +12,10 @@ from ..schemas import (
 from ..llm.query_processor import process_query
 import time
 import re
+import csv
+import json
+import io
+from datetime import datetime
 
 router = APIRouter()
 
@@ -331,4 +336,207 @@ def run_benchmark(db: Session = Depends(get_db)):
         average_execution_time=total_time / len(test_queries) if test_queries else 0,
         query_type_distribution=query_type_distribution,
         results=results
-    ) 
+    )
+
+@router.get("/export/employees/{format}")
+def export_employees(format: str, db: Session = Depends(get_db)):
+    """Export employee data in CSV or JSON format"""
+    try:
+        employees = db.query(models.Employee).all()
+        
+        if format.lower() == "csv":
+            output = io.StringIO()
+            writer = csv.writer(output)
+            
+            # Write header
+            writer.writerow(['ID', 'Full Name', 'Email', 'Department', 'Job Title', 'Hire Date'])
+            
+            # Write data
+            for emp in employees:
+                writer.writerow([
+                    emp.id,
+                    emp.full_name,
+                    emp.email,
+                    emp.department,
+                    emp.job_title,
+                    emp.hire_date
+                ])
+            
+            output.seek(0)
+            return StreamingResponse(
+                io.BytesIO(output.getvalue().encode('utf-8')),
+                media_type="text/csv",
+                headers={"Content-Disposition": f"attachment; filename=employees_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"}
+            )
+            
+        elif format.lower() == "json":
+            data = []
+            for emp in employees:
+                data.append({
+                    "id": emp.id,
+                    "full_name": emp.full_name,
+                    "email": emp.email,
+                    "department": emp.department,
+                    "job_title": emp.job_title,
+                    "hire_date": emp.hire_date.isoformat() if emp.hire_date else None
+                })
+            
+            json_str = json.dumps(data, indent=2)
+            return StreamingResponse(
+                io.BytesIO(json_str.encode('utf-8')),
+                media_type="application/json",
+                headers={"Content-Disposition": f"attachment; filename=employees_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"}
+            )
+        
+        else:
+            raise HTTPException(status_code=400, detail="Format must be 'csv' or 'json'")
+            
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/export/activities/{format}")
+def export_activities(format: str, db: Session = Depends(get_db)):
+    """Export activity data in CSV or JSON format"""
+    try:
+        activities = db.query(models.EmployeeActivity).join(models.Employee).all()
+        
+        if format.lower() == "csv":
+            output = io.StringIO()
+            writer = csv.writer(output)
+            
+            # Write header
+            writer.writerow([
+                'Activity ID', 'Employee ID', 'Employee Name', 'Week Number', 
+                'Hours Worked', 'Total Sales', 'Meetings Attended', 'Activities'
+            ])
+            
+            # Write data
+            for activity in activities:
+                writer.writerow([
+                    activity.id,
+                    activity.employee_id,
+                    activity.employee.full_name,
+                    activity.week_number,
+                    activity.hours_worked,
+                    activity.total_sales,
+                    activity.meetings_attended,
+                    activity.activities
+                ])
+            
+            output.seek(0)
+            return StreamingResponse(
+                io.BytesIO(output.getvalue().encode('utf-8')),
+                media_type="text/csv",
+                headers={"Content-Disposition": f"attachment; filename=activities_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"}
+            )
+            
+        elif format.lower() == "json":
+            data = []
+            for activity in activities:
+                data.append({
+                    "id": activity.id,
+                    "employee_id": activity.employee_id,
+                    "employee_name": activity.employee.full_name,
+                    "week_number": activity.week_number,
+                    "hours_worked": float(activity.hours_worked) if activity.hours_worked else None,
+                    "total_sales": float(activity.total_sales) if activity.total_sales else None,
+                    "meetings_attended": activity.meetings_attended,
+                    "activities": activity.activities
+                })
+            
+            json_str = json.dumps(data, indent=2)
+            return StreamingResponse(
+                io.BytesIO(json_str.encode('utf-8')),
+                media_type="application/json",
+                headers={"Content-Disposition": f"attachment; filename=activities_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"}
+            )
+        
+        else:
+            raise HTTPException(status_code=400, detail="Format must be 'csv' or 'json'")
+            
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/export/summary/{format}")
+def export_summary(format: str, db: Session = Depends(get_db)):
+    """Export summary statistics in CSV or JSON format"""
+    try:
+        # Get summary statistics
+        total_employees = db.query(models.Employee).count()
+        total_activities = db.query(models.EmployeeActivity).count()
+        
+        # Department statistics
+        dept_stats = db.execute(text("""
+            SELECT 
+                e.department,
+                COUNT(DISTINCT e.id) as employee_count,
+                AVG(ea.hours_worked) as avg_hours,
+                SUM(ea.total_sales) as total_sales,
+                AVG(ea.meetings_attended) as avg_meetings
+            FROM employees e
+            LEFT JOIN employee_activities ea ON e.id = ea.employee_id
+            GROUP BY e.department
+        """)).fetchall()
+        
+        if format.lower() == "csv":
+            output = io.StringIO()
+            writer = csv.writer(output)
+            
+            # Write summary
+            writer.writerow(['Summary Statistics'])
+            writer.writerow(['Total Employees', total_employees])
+            writer.writerow(['Total Activity Records', total_activities])
+            writer.writerow([])
+            
+            # Write department stats
+            writer.writerow(['Department', 'Employee Count', 'Avg Hours/Week', 'Total Sales', 'Avg Meetings/Week'])
+            for row in dept_stats:
+                writer.writerow([
+                    row.department,
+                    row.employee_count,
+                    f"{row.avg_hours:.1f}" if row.avg_hours else "0",
+                    f"{row.total_sales:.2f}" if row.total_sales else "0",
+                    f"{row.avg_meetings:.1f}" if row.avg_meetings else "0"
+                ])
+            
+            output.seek(0)
+            return StreamingResponse(
+                io.BytesIO(output.getvalue().encode('utf-8')),
+                media_type="text/csv",
+                headers={"Content-Disposition": f"attachment; filename=summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"}
+            )
+            
+        elif format.lower() == "json":
+            data = {
+                "summary": {
+                    "total_employees": total_employees,
+                    "total_activity_records": total_activities,
+                    "export_timestamp": datetime.now().isoformat()
+                },
+                "department_statistics": []
+            }
+            
+            for row in dept_stats:
+                data["department_statistics"].append({
+                    "department": row.department,
+                    "employee_count": row.employee_count,
+                    "avg_hours_per_week": float(row.avg_hours) if row.avg_hours else 0,
+                    "total_sales": float(row.total_sales) if row.total_sales else 0,
+                    "avg_meetings_per_week": float(row.avg_meetings) if row.avg_meetings else 0
+                })
+            
+            json_str = json.dumps(data, indent=2)
+            return StreamingResponse(
+                io.BytesIO(json_str.encode('utf-8')),
+                media_type="application/json",
+                headers={"Content-Disposition": f"attachment; filename=summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"}
+            )
+        
+        else:
+            raise HTTPException(status_code=400, detail="Format must be 'csv' or 'json'")
+            
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e)) 
